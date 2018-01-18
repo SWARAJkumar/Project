@@ -10,8 +10,8 @@ public class Classifier implements Cloneable, Serializable{
 	private StringBuilder condition = new StringBuilder();
 	private Two_d_array_indices action;
 	private double prediction_error = 0;
-	private double fitness = 0.001;
-	private double prediction = 0.001;
+	private double fitness = 0.0001;
+	private double prediction = 0.0001;
 	private int experience = 0;
 	private int time_stamp = 0;
 	private double action_set_size = 0;

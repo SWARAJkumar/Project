@@ -6,8 +6,8 @@ import java.util.*;
 public class Run_GA {
 
 	public static boolean do_GA_Subsumption = true;
-	static int GA_count=0;
-	
+	static int GA_count = 0;
+
 	public static boolean condition_for_running_GA(ArrayList<Classifier> A, int actual_time) {
 		int sum_num = 0;
 		int sum_tsc_num = 0;
@@ -15,9 +15,12 @@ public class Run_GA {
 			sum_tsc_num += c.getTime_stamp() * c.getNumerosity();
 			sum_num += c.getNumerosity();
 		}
+
 		double current_value = (double) sum_tsc_num / sum_num;
-		//System.out.println("condition for running ga");
+		//System.out.println("Current value: " + current_value);
 		current_value = (double) actual_time - current_value;
+		//System.out.println(" actual time " + actual_time );
+		
 		if (current_value > Main_XCS.GA_Threshold)
 			return true;
 		else
@@ -26,15 +29,15 @@ public class Run_GA {
 
 	public static void running_GA(ArrayList<Classifier> A, ArrayList<Classifier> P, String input_state,
 			int actual_time) {
-		
-		if(condition_for_running_GA(A, actual_time)){
-			
-			Run_GA.GA_count++;
-			
+
+		if (condition_for_running_GA(A, actual_time)) {
+
+			// Run_GA.GA_count++;
+
 			for (Classifier c : A) {
 				c.setTime_stamp(actual_time);
 			}
-			
+
 			Classifier parent1 = select_offspring(A);
 			Classifier parent2 = select_offspring(A);
 			try {
@@ -42,12 +45,17 @@ public class Run_GA {
 				Classifier child2 = (Classifier) parent2.clone();
 
 				child1.setNumerosity(1);
+				child1.setTime_stamp(0);
 				child2.setNumerosity(1);
+				child2.setTime_stamp(0);
 				child1.setExperience(0);
 				child2.setExperience(0);
+
 				if (Math.random() < Main_XCS.prob_Crossover) {
 					Classifier[] cl = crossover(child1, child2);
-					if (cl[0].getCondition().length() == Othello.BOARD_SIZE * Othello.BOARD_SIZE * 2 && cl[1].getCondition().length() == Othello.BOARD_SIZE * Othello.BOARD_SIZE * 2) {
+					if (cl[0].getCondition().length() == Othello.BOARD_SIZE * Othello.BOARD_SIZE * 2
+							&& cl[1].getCondition().length() == Othello.BOARD_SIZE * Othello.BOARD_SIZE * 2) {
+
 						child1 = cl[0];
 						child2 = cl[1];
 
@@ -72,14 +80,15 @@ public class Run_GA {
 							else
 								P = InsertionDeletion.insertion(child1, P);
 
-							if (Subsumption.does_subsume(parent1, child2))
+							if (Subsumption.does_subsume(parent1, child2)) {
 								parent1.setNumerosity(parent1.getNumerosity() + 1);
+							}
 
 							else if (Subsumption.does_subsume(parent2, child2))
 								parent2.setNumerosity(parent2.getNumerosity() + 1);
 							else
 								P = InsertionDeletion.insertion(child2, P);
-							
+
 							P = InsertionDeletion.delete_from_population(P);
 						}
 
@@ -93,9 +102,10 @@ public class Run_GA {
 	}
 
 	public static Classifier[] crossover(Classifier c1, Classifier c2) {
-		System.out.println("Crossover in progress");
-		System.out.println(c1.getCondition().toString()+"\n"+c2.getCondition().toString());
-		
+		// System.out.println("Crossover in progress");
+		// System.out.println(c1.getCondition().toString() + "\n" +
+		// c2.getCondition().toString());
+
 		double x = Math.random() * (c1.getCondition().length() + 1);
 		double y = Math.random() * (c2.getCondition().length() + 1);
 		if (x > y) {
@@ -111,7 +121,7 @@ public class Run_GA {
 
 		// just a defensive mechanism though I dont think it was necessary
 		if (c1.getCondition().length() == Othello.BOARD_SIZE * Othello.BOARD_SIZE * 2) {
-			
+
 			cl[0] = c1;
 			cl[1] = c2;
 		}
@@ -138,10 +148,10 @@ public class Run_GA {
 	}
 
 	private static int[] random_action_generator() {
-		int col = (int) (Math.random() * 4);
-		int row = (int) (Math.random() * 4);
+		int col = (int) (Math.random() * 6);
+		int row = (int) (Math.random() * 6);
 		int flag = 0;
-		if ((col == 1 && (row == 1 || row == 2)) || (col == 2 && (row == 1 || row == 2)))
+		if ((col == 2 && (row == 2 || row == 3)) || (col == 3 && (row == 2 || row == 3)))
 			flag = 0;
 		else
 			flag = 1;
@@ -153,10 +163,9 @@ public class Run_GA {
 	}
 
 	private static Classifier mutation(Classifier cl, String input_state) {
-		System.out.println("mutation in progress");
-		System.out.println(cl.getCondition().toString());
-		
-		
+		// System.out.println("mutation in progress");
+		// System.out.println(cl.getCondition().toString());
+
 		for (int i = 0; i < cl.getCondition().length(); i++) {
 			if (Math.random() < Main_XCS.prob_Mutating) {
 				if (cl.getCondition().charAt(i) == '#')
@@ -179,21 +188,17 @@ public class Run_GA {
 				}
 			}
 		}
-		//System.out.println(cl.getCondition().toString()+"\t"+cl.getAction().toString());
-		boolean flag=true;
-		for(int i=0;i<cl.getCondition().length();++i){
-			if(cl.getCondition().charAt(i)=='0' || cl.getCondition().charAt(i)=='1'){
-				flag=false;
+		// System.out.println(cl.getCondition().toString()+"\t"+cl.getAction().toString());
+		boolean flag = true;
+		for (int i = 0; i < cl.getCondition().length(); ++i) {
+			if (cl.getCondition().charAt(i) == '0' || cl.getCondition().charAt(i) == '1') {
+				flag = false;
 				break;
 			}
 		}
-		if(flag){
-			if(Mail.mail_limit<1){
-				Mail.send("XCS:ALL HASHES","all hashes detected for");
-				Mail.mail_limit++;
-			}
+		if (flag) {
 			Toolkit.getDefaultToolkit().beep();
-			System.out.println("All hashes? "+flag);
+			System.out.println("All hashes? " + flag);
 		}
 		return cl;
 	}

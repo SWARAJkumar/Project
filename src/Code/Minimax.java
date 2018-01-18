@@ -9,6 +9,7 @@ public class Minimax extends Environment {
 
 	int score = 0;
 
+	// 0 is for black 1 is for white
 	public int minimax(Othello game, int depth, boolean isMax, int alpha, int beta) {
 		Two_d_array_indices best_move = new Two_d_array_indices();
 
@@ -17,15 +18,10 @@ public class Minimax extends Environment {
 		else {
 			ArrayList<Two_d_array_indices> move_list = get_pink_minimax(game);
 
-			/*
-			 * for(Two_d_array_indices t:move_list){
-			 * System.out.println(t.toString()); }
-			 */
 			if (move_list.isEmpty())
 				score = evaluate(game);
 			else {
 				if (isMax) {
-//					System.out.println("max part");
 					int best_score = -999;
 
 					for (Two_d_array_indices permutation : move_list) {
@@ -33,15 +29,11 @@ public class Minimax extends Environment {
 						Othello next_game = new Othello(game, isMax);// blacks
 																		// turn
 						game.setVisible(false);
-						// System.out.println(permutation.toString());
-						boolean flag = take_action(next_game, permutation);
 
-//						if (!flag)
-//							System.out.println("something is wrong here");
-
+						take_action(next_game, permutation);
 						int minimax_score = minimax(next_game, depth - 1, !isMax, alpha, beta);
-						best_score = max(best_score, minimax_score);
-						alpha = max(alpha, minimax_score);
+						best_score = Math.max(best_score, minimax_score);
+						alpha = Math.max(alpha, minimax_score);
 						if (beta <= alpha)
 							break;
 						best_move = permutation;
@@ -50,21 +42,21 @@ public class Minimax extends Environment {
 					best_score_stack.push(score);
 					best_move_stack.push(best_move);
 				} else {
-//					System.out.println("min part");
+					// System.out.println("min part");
 					int worst_score = 999;
 
 					for (Two_d_array_indices permutation : move_list) {
 
 						Othello next_game = new Othello(game, isMax);
-//						 System.out.println(permutation.toString());
+						// System.out.println(permutation.toString());
 						boolean flag = take_action(next_game, permutation);
 
-//						if (flag == false)
-//							System.out.println("something is wrong here");
+						// if (flag == false)
+						// System.out.println("something is wrong here");
 
 						int minimax_score = minimax(next_game, depth - 1, !isMax, alpha, beta);
-						worst_score = min(worst_score, minimax_score);
-						beta = min(beta, worst_score);
+						worst_score = Math.min(worst_score, minimax_score);
+						beta = Math.min(beta, worst_score);
 						if (beta <= alpha)
 							break;
 						best_move = permutation;
@@ -76,21 +68,5 @@ public class Minimax extends Environment {
 			}
 		}
 		return score;
-	}
-
-	public int max(int a, int b) {
-
-		if (a > b)
-			return a;
-		else
-			return b;
-
-	}
-
-	public int min(int a, int b) {
-		if (a < b)
-			return a;
-		else
-			return b;
 	}
 }

@@ -9,7 +9,12 @@ public class Environment {
 
 	// Data Members
 	private HashMap<String, Boolean> pink_array;
-	Integer[][] value = { { 10, 3, 3, 10 }, { 3, 5, 5, 3 }, { 3, 5, 5, 3 }, { 10, 3, 3, 10 } };
+	// Integer[][] value = { { 100, 3, 3, 100 }, { 3, 5, 5, 3 }, { 3, 5, 5, 3 },
+	// { 100, 3, 3, 100 } };
+	int[][] value = { { 50, -20, 5, 5, -20, 50 }, { -20, -50, -2, -2, -50, -20 }, { 5, -2, -1, -1, -2, 5 },
+			{ 5, -2, -1, -1, -2, 5 }, { -20, -50, -2, -2, -50, -20 }, { 50, -20, 5, 5, -20, 50 } };
+	
+	double value_sum = 620.0; // sum of all the above values.
 
 	public Environment() {
 		// TODO Auto-generated constructor stub
@@ -24,11 +29,10 @@ public class Environment {
 		JButton[][] buttons = game.get_buttons();
 
 		for (int i = 0; i < buttons.length; i++) {
-			for (int j = 0; j < buttons.length; j++) {
+			for (int j = 0; j < buttons[i].length; j++) {
 				if (buttons[i][j].getBackground() == Color.BLACK && player == 0) {
 					evaluation_value += value[i][j];
-				}
-				if (buttons[i][j].getBackground() == Color.WHITE && player == 1) {
+				} else if (buttons[i][j].getBackground() == Color.WHITE && player == 1) {
 					evaluation_value += value[i][j];
 				}
 			}
@@ -40,17 +44,16 @@ public class Environment {
 
 		int e_val = 0;
 
-		if (is_game_complete(game)) {
-			if (game.get_winner().equals("Black"))// if black wins +30 else -30
-				e_val += 30;
-			else
-				e_val -= 30;
-		}
+		// if (is_game_complete(game)) {
+		// if (game.get_winner().equals("Black"))// if black wins +30 else -30
+		// e_val += 30;
+		// else
+		// e_val -= 30;
+		// }
 
 		e_val += evaluation_function(game, 0) - evaluation_function(game, 1);// black
 																				// -
 																				// white
-//		System.out.println("Evaluation occur : " + e_val);
 		return e_val;
 	}
 
@@ -92,8 +95,8 @@ public class Environment {
 		ArrayList<Two_d_array_indices> pink_list = new ArrayList<Two_d_array_indices>();
 
 		JButton[][] buttons = game.get_buttons();
-		for (int i = 0; i < 4; i++) {
-			for (int j = 0; j < 4; j++) {
+		for (int i = 0; i < buttons.length; i++) {
+			for (int j = 0; j < buttons.length; j++) {
 				if (buttons[i][j].getBackground() == Color.PINK)
 					pink_list.add(new Two_d_array_indices(i, j));
 			}

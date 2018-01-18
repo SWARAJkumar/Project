@@ -1,6 +1,6 @@
 package Code;
 
-import java.awt.Toolkit;
+import java.awt.Color;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -11,7 +11,6 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -21,46 +20,53 @@ import java.util.Map.Entry;
 import javax.swing.JButton;
 
 public class Main_XCS {
-	static int covering_count=0;
+
 	// Data Members
-	public static final int size_Of_Population = 3000;
-	public static final int GA_Threshold = 100;
-	public static final int Deletion_Threshold =20;// change it to 20 if not working
+	public static final int size_Of_Population = 50000;
+	public static final int GA_Threshold = 50;
+	public static final int Deletion_Threshold = 25;
 	public static final int Subsumption_Threshold = 20;
-	public static final double prob_Crossover = 0.5;
-	public static final double prob_Mutating = 0.01;
-	public static final double fitness_Threshold = 0.01;
-	public static final double minimum_num_of_actions_Threshold = 12;
-	public static final double dont_care_Threshold = 0.15;
-	public static final double aphsylant = 0.5;
-	public static final double prediction_error_knot = 0.1; // Initially 0.01
+	public static final double prob_Crossover = 0.8;
+	public static final double prob_Mutating = 0.4;
+	public static final double fitness_Threshold = 0.1;
+	public static final double minimum_num_of_actions_Threshold = 32;
+	public static final double dont_care_Threshold = 0.4;
+	public double aphsylant = 0.8; // For action selection
+	public static final double prediction_error_knot = 0.01;
 	public static final double alpha = 0.1;
 	public static final double power_factor_nu = 5;
-	public static final double beta = 0.02; // Initially 0.2
+	public static final double beta = 0.1;
+	public static final double gamma = 1;
 	public static int actual_time = 0;
 
-	ArrayList<Classifier> population_Set = new ArrayList<Classifier>(size_Of_Population);
+	ArrayList<Classifier> population_Set;
 	ArrayList<Classifier> match_Set;
-	ArrayList<Classifier> action_Set = new ArrayList<Classifier>();
-	HashMap<Classifier, Boolean> executed_actions = new HashMap<>();
-	static HashMap<Classifier, Boolean> executed_actions_for_GA = new HashMap<>();
+	ArrayList<Classifier> action_Set;
+	ArrayList<Classifier> previous_action_set;
 	static LinkedList<pair> list_action_sets;
 	double[][] prediction_array;
 
+	// Data members for csv:
+	public double sum_fitness = 0;
+	public double sum_prediction = 0;
+	public double sum_prediction_error = 0;
+	public int sum_numerosity = 0;
+	public double reward = 0;
+
 	Othello game;
+	Environment env;
 	JButton[][] buttons;
 
 	// Constructor:
 	public Main_XCS(Othello game) {
-		// actual_time++;
 		this.game = game;
 		buttons = game.get_buttons();
+		population_Set = new ArrayList<Classifier>(size_Of_Population);
 		list_action_sets = new LinkedList<>();
 
-		//System.out.println("reading serializble");
 		// Generate population-set:
 		this.generate_Population_Set();
-		
+
 	}
 
 	// Input state and actions set pair class (Used in GA):
@@ -75,21 +81,22 @@ public class Main_XCS {
 	}
 
 	// Member functions:
-	public void run_experiment() {
+	public void run_experiment(double aphsylant) {
 		// Get the incoming state from environment:
-		Environment env = new Environment();
+		env = new Environment();
 		String input_situation = env.get_input_state(game);
-//		System.out.println(input_situation);
+		// System.out.println("Input State:" + input_situation);
+
+		this.aphsylant = aphsylant;
 
 		// Generate match-set:
-		this.generate_Match_Set(input_situation);
+		this.generate_Match_Set(input_situation, env);
 
 		// Generate prediction array:
 		this.generate_Prediction_Array();
 
 		// Select Action:
 		Two_d_array_indices action_to_execute = this.select_action(env);
-		// System.out.println(action_to_execute.i + ", " + action_to_execute.j);
 
 		// Generate action set:
 		this.generate_action_set(action_to_execute);
@@ -97,52 +104,29 @@ public class Main_XCS {
 		// Execute action:
 		env.take_action(game, action_to_execute);
 
-		// Update parameters:
-		double sigma_numerosity = 0;
-		for (Classifier cl : action_Set) {
-			sigma_numerosity += cl.getNumerosity();
+		// Reward Assignment
+		if (previous_action_set == null) {
+			previous_action_set = action_Set;
+		} else {
+			QRewardUpdate(previous_action_set, this.reward, env);
+			// this.update_set(previous_action_set, this.reward);
+			previous_action_set = action_Set;
 		}
+		this.reward = calculate_reward(env, game);
 
-		for (Classifier cl : action_Set) {
-			cl.setExperience(cl.getExperience() + 1);
+		// Subsumption.do_action_set_subsumption(action_Set, population_Set);
 
-			double AScl = cl.getAction_set_size();
+		ADD_action_set(env);
 
-			if (cl.getExperience() < 1 / beta) {
-				AScl += (sigma_numerosity - AScl) / cl.getExperience();
-			} else {
-				AScl += beta * (sigma_numerosity - AScl);
-			}
-			
-			cl.setAction_set_size(AScl);
-		}
-
-		// Giving reward to classifiers:
-		int row = action_to_execute.i;
-		int col = action_to_execute.j;
-		int reward = 0;
-
-		// Immediate reward:
-		if ((row == 0 && col == 0) || (row == Othello.BOARD_SIZE - 1 && col == 0)
-				|| (col == Othello.BOARD_SIZE - 1 && row == 0)
-				|| (row == Othello.BOARD_SIZE - 1 && col == Othello.BOARD_SIZE - 1)) {
-
-			reward = 1;
-			this.update_set_action_set(reward);
-		}
-
-		Subsumption.do_action_set_subsumption(action_Set, population_Set);
-
-		create_action_set_list_for_GA(env);
 	}
 
 	// Member Functions
 	public void generate_Population_Set() {
 		ObjectInputStream os = null;
-		int count =1;
-		int count_fit=0;
+		int count = 0;
 		try {
-			FileInputStream file_stream = new FileInputStream("classifier5.ser");
+
+			FileInputStream file_stream = new FileInputStream("Classifiers.ser");
 			File time_file = new File("actual_time.txt");
 			FileReader file_reader = new FileReader(time_file);
 			BufferedReader bf = new BufferedReader(file_reader);
@@ -157,21 +141,23 @@ public class Main_XCS {
 				Classifier cl;
 				cl = (Classifier) os.readObject();
 
-				if(cl==null)
-					break;
-				System.out.println(count+"\t"+cl.getCondition().toString()+"\t"+cl.getFitness()+","+count_fit);
-				if(cl.getFitness()==0.001)
-					count_fit++;
+				this.sum_fitness += cl.getFitness();
+				this.sum_prediction += cl.getPrediction();
+				this.sum_prediction_error += cl.getPrediction_error();
+				this.sum_numerosity += cl.getNumerosity();
 				count++;
+
 				population_Set.add(cl);
 			}
 		} catch (FileNotFoundException ex) {
 			return;
 		} catch (IOException ex) {
+			// System.out.println("No. of macro-classifiers: " + count);
 			return;
 		} catch (ClassNotFoundException e) {
 			e.printStackTrace();
 		} finally {
+
 			try {
 				if (os != null) {
 					os.close();
@@ -181,29 +167,23 @@ public class Main_XCS {
 			}
 		}
 	}
-	
 
-
-	public void generate_Match_Set(String input_condition) {
+	public void generate_Match_Set(String input_condition, Environment env) {
 		match_Set = new ArrayList<>();
 
 		if (population_Set.size() == 0) {
-			generate_Covering_Classifer(input_condition, new HashMap<>());
+			generate_Covering_Classifer(input_condition, new HashMap<String, Boolean>());
 		}
 
-		for (int i = 0; i < population_Set.size(); i++) {
+		First: for (int i = 0; i < population_Set.size(); i++) {
 			String population_Condition = population_Set.get(i).getCondition().toString();
-			boolean isEqual = true;
 			for (int j = 0; j < population_Condition.length(); j++) {
 				if ((input_condition.charAt(j) == '1' && population_Condition.charAt(j) == '0')
 						|| (input_condition.charAt(j) == '0' && population_Condition.charAt(j) == '1')) {
-					isEqual = false;
-					break;
+					continue First;
 				}
 			}
-			if (isEqual) {
-				match_Set.add(population_Set.get(i));
-			}
+			match_Set.add(population_Set.get(i));
 		}
 
 		HashMap<String, Boolean> map = new HashMap<>();
@@ -212,14 +192,26 @@ public class Main_XCS {
 			map.put(str, true);
 		}
 
-		if (map.size() < minimum_num_of_actions_Threshold) {
+		// When to instantiate covering:
+		HashMap<String, Boolean> valid_move = env.get_pink();
+		Set<String> ls = map.keySet();
+
+		if (ls.size() == 0) {
 			generate_Covering_Classifer(input_condition, map);
 			InsertionDeletion.delete_from_population(population_Set);
+			return;
+		}
+
+		for (String action : ls) {
+			if (!valid_move.containsKey(action)) {
+				generate_Covering_Classifer(input_condition, map);
+				InsertionDeletion.delete_from_population(population_Set);
+				break;
+			}
 		}
 	}
 
-	public void generate_Covering_Classifer(String input_condition, HashMap<String, Boolean> map) {
-		covering_count++;
+	public void generate_Covering_Classifer(String input_condition, HashMap<String, Boolean> hashMap) {
 		StringBuilder new_rule_condition = new StringBuilder();
 		for (int i = 0; i < input_condition.length(); i++) {
 			double rand_number = Math.random();
@@ -237,12 +229,11 @@ public class Main_XCS {
 						|| (i == (Othello.BOARD_SIZE / 2) && j == (Othello.BOARD_SIZE / 2 - 1))) {
 					continue;
 				}
-				if (map.containsKey("" + i + j)) {
+				if (hashMap.containsKey("" + i + j)) {
 					continue;
 				}
 				Classifier new_classifier = new Classifier(new_rule_condition, new Two_d_array_indices(i, j));
 				population_Set.add(new_classifier);
-				//System.out.println("coevering applied");
 				match_Set.add(new_classifier);
 			}
 		}
@@ -273,9 +264,9 @@ public class Main_XCS {
 		HashMap<String, Boolean> valid_move = env.get_pink();
 		double rand_num = Math.random();
 		int retvali = 0, retvalj = 0;
-		
+
 		// Exploitation
-		if (rand_num < aphsylant) {
+		if (rand_num < this.aphsylant) {
 			double max = Integer.MIN_VALUE;
 			for (int i = 0; i < prediction_array.length; i++) {
 				for (int j = 0; j < prediction_array[i].length; j++) {
@@ -306,45 +297,159 @@ public class Main_XCS {
 	}
 
 	public void generate_action_set(Two_d_array_indices action) {
-		action_Set.clear();
-
+		// getClass().System.out.println(action.i+",, "+action.j);
+		action_Set = new ArrayList<Classifier>();
 		for (Classifier cl : match_Set) {
+			// System.out.print(cl.getAction().i + ","+cl.getAction().j+" ");
 			if (cl.getAction().i == action.i && cl.getAction().j == action.j) {
-				executed_actions.put(cl, true);
 				action_Set.add(cl);
 			}
 		}
+		// System.out.println();
 	}
 
-	public void update_fitness() {
-		Set<Entry<Classifier, Boolean>> allEntries = executed_actions.entrySet();
-		ArrayList<Double> accuracy = new ArrayList<>();
-		double accuracy_sum = 0;
+	public double calculate_reward(Environment env, Othello game) {
+		int[][] Board_values = env.value;
+		JButton[][] buttons = game.get_buttons();
+		double retval = 0;
 
-		for (Entry<Classifier, Boolean> entry : allEntries) {
-			double pred_error = entry.getKey().getPrediction_error();
-			if (pred_error < prediction_error_knot) {
-				accuracy.add(1.0);
-			} else {
-				accuracy.add(alpha * (Math.pow(pred_error / prediction_error_knot, -power_factor_nu)));
+		boolean end_phase = false;
+		int occupied_cells = 0, num_blacks = 0, num_whites = 0;
+		for (int i = 0; i < Board_values.length; ++i) {
+			for (int j = 0; j < Board_values[i].length; ++j) {
+				if (buttons[i][j].getBackground() == Color.BLACK) {
+					num_blacks++;
+					occupied_cells++;
+				} else if (buttons[i][j].getBackground() == Color.WHITE) {
+					num_whites++;
+					occupied_cells++;
+				}
 			}
-			accuracy_sum += accuracy.get(accuracy.size() - 1) * entry.getKey().getNumerosity();
 		}
 
-		int k = 0;
-		for (Entry<Classifier, Boolean> entry : allEntries) {
-			double fitness = entry.getKey().getFitness();
-			fitness = fitness + beta * (accuracy.get(k++) * entry.getKey().getNumerosity() / accuracy_sum - fitness);
-			entry.getKey().setFitness(fitness);
+		if (occupied_cells > (0.8 * buttons.length * buttons[0].length)) {
+			end_phase = true;
 		}
+
+		if (!end_phase) {
+			for (int i = 0; i < Board_values.length; ++i) {
+				for (int j = 0; j < Board_values[i].length; ++j) {
+					int w = 0;
+					if (buttons[i][j].getBackground() == Color.BLACK) {
+						w = 1;
+					} else if (buttons[i][j].getBackground() == Color.WHITE) {
+						w = -1;
+					}
+
+					retval += w * Board_values[i][j];
+				}
+			}
+			retval /= env.value_sum;
+		}
+
+		else {
+			retval = ((num_blacks - num_whites) * 0.1) / 36;
+		}
+
+		return retval;
 	}
 
-	public void update_fitness_action_set() {
+	public void QRewardUpdate(ArrayList<Classifier> ActionSet, double previous_reward, Environment env) {
+
+		HashMap<String, Boolean> valid_move = env.get_pink();
+
+		double sigma_numerosity = 0;
+		for (Classifier cl : ActionSet) {
+			sigma_numerosity += cl.getNumerosity();
+		}
+
+		double max_prediction = Integer.MIN_VALUE;
+		for (int i = 0; i < prediction_array.length; i++) {
+			for (int j = 0; j < prediction_array[i].length; j++) {
+				if (prediction_array[i][j] >= max_prediction && valid_move.containsKey("" + i + j)) {
+					max_prediction = prediction_array[i][j];
+				}
+			}
+		}
+		double P1 = (previous_reward + gamma * max_prediction);
+		for (Classifier cl : ActionSet) {
+			cl.setExperience(cl.getExperience() + 1);
+
+			// Update prediction
+			double p = cl.getPrediction();
+			if (cl.getExperience() < (1 / beta)) {
+				p = p + (P1 - p) / cl.getExperience();
+			} else {
+				p = p + (P1 - p) * beta;
+			}
+			cl.setPrediction(p);
+
+			// Update prediction error
+			double err = cl.getPrediction_error();
+			if (cl.getExperience() < (1 / beta)) {
+				err = err + (Math.abs(P1 - p) - err) / cl.getExperience();
+			} else {
+				err = err + (Math.abs(P1 - p) - err) * beta;
+			}
+			cl.setPrediction_error(err);
+
+			// Update action set size estimate AScl
+			double AScl = cl.getAction_set_size();
+			if (cl.getExperience() < 1 / beta) {
+				AScl += (sigma_numerosity - AScl) / cl.getExperience();
+			} else {
+				AScl += beta * (sigma_numerosity - AScl);
+			}
+			cl.setAction_set_size(AScl);
+		}
+		this.update_fitness(ActionSet);
+
+		/**
+		 * Q (st-1, at-1) <- (1-alpha) (Qst-1, at-1) + alpha*(rt + gamma* maxa
+		 * Q(st, a))
+		 **/
+	}
+
+	private void update_set(ArrayList<Classifier> Set, double reward) {
+
+		double sigma_numerosity = 0;
+		for (Classifier cl : Set) {
+			sigma_numerosity += cl.getNumerosity();
+		}
+
+		for (Classifier cl : Set) {
+
+			cl.setExperience(cl.getExperience() + 1);
+
+			// Update prediction error:
+			if (cl.getExperience() < 1 / beta) {
+				double error = Math.abs(cl.getPrediction() - reward) / cl.getExperience();
+				cl.setPrediction_error(error);
+			} else {
+				double error = Math.abs(cl.getPrediction() - reward) * beta;
+				cl.setPrediction_error(error);
+			}
+
+			// Update action set size estimate AScl
+			double AScl = cl.getAction_set_size();
+			if (cl.getExperience() < 1 / beta) {
+				AScl += (sigma_numerosity - AScl) / cl.getExperience();
+			} else {
+				AScl += beta * (sigma_numerosity - AScl);
+			}
+			cl.setAction_set_size(AScl);
+		}
+		this.update_fitness(Set);
+	}
+
+	public void update_fitness(ArrayList<Classifier> Set) {
 		ArrayList<Double> accuracy = new ArrayList<>();
 		double accuracy_sum = 0;
 
-		for (Classifier cl : action_Set) {
+		// System.out.println(Set);
+		for (Classifier cl : Set) {
 			double pred_error = cl.getPrediction_error();
+			// System.out.println(pred_error);
 			if (pred_error < prediction_error_knot) {
 				accuracy.add(1.0);
 			} else {
@@ -354,14 +459,15 @@ public class Main_XCS {
 		}
 
 		int k = 0;
-		for (Classifier cl : action_Set) {
+		for (Classifier cl : Set) {
 			double fitness = cl.getFitness();
 			fitness = fitness + beta * (accuracy.get(k++) * cl.getNumerosity() / accuracy_sum - fitness);
+			// System.out.println(fitness);
 			cl.setFitness(fitness);
 		}
 	}
 
-	public void give_delayed_reward() {
+	public void END_reward() {
 		int reward = 0;
 		// Winning the game
 		if (game.get_winner() == "White") {
@@ -371,54 +477,67 @@ public class Main_XCS {
 		else if (game.get_winner() == "Black") {
 			reward = +1;
 		}
-		this.update_set(reward);
+
+		this.END_update_set(reward);
 	}
 
-	private void update_set(int reward) {
-		//System.out.println("I am here");
-		Set<Entry<Classifier, Boolean>> allEntries = executed_actions.entrySet();
+	private void END_update_set(int reward) {
 
-		for (Entry<Classifier, Boolean> entry : allEntries) {
-			Classifier cl = entry.getKey();
+		double P1 = reward;
+		for (pair P : list_action_sets) {
+			ArrayList<Classifier> ActionSet = P.actions_Set;
+			for (Classifier cl : ActionSet) {
+				// Update prediction:
+				double p = cl.getPrediction();
+				if (cl.getExperience() < 1 / beta) {
+					p = p + (P1 - p) / cl.getExperience();
+					cl.setPrediction(p);
+				}
+				else{
+					p = p + (P1 - p) *beta;
+					cl.setPrediction(p);
+				}
 
-			// Update prediction:
-			cl.setPrediction(cl.getPrediction() + reward);
-
-			// Update prediction error:
-			if (cl.getExperience() < 1 / beta) {
-				double error = Math.abs(cl.getPrediction() - reward) / cl.getExperience();
-				//System.out.println("1Error:" + error);
-				cl.setPrediction_error(error);
-			} else {
-				double error = Math.abs(cl.getPrediction() - reward) * beta;
-				cl.setPrediction_error(error);
-				//System.out.println("2Error:" + error);
+				// Update prediction error:
+				double err = cl.getPrediction_error();
+				if (cl.getExperience() < (1 / beta)) {
+					err = err + (Math.abs(P1 - p) - err) / cl.getExperience();
+				} else {
+					err = err + (Math.abs(P1 - p) - err) * beta;
+				}
+				cl.setPrediction_error(err);
 			}
 		}
 
-		this.update_fitness();
+		this.End_update_fitness();
 	}
 
-	private void update_set_action_set(int reward) {
+	public void End_update_fitness() {
+		ArrayList<Double> accuracy = new ArrayList<>();
+		double accuracy_sum = 0;
 
-		for (Classifier cl : action_Set) {
-
-			// Update prediction:
-			cl.setPrediction(cl.getPrediction() + reward);
-
-			// Update prediction error:
-			if (cl.getExperience() < 1 / beta) {
-				double error = Math.abs(cl.getPrediction() - reward) / cl.getExperience();
-				cl.setPrediction_error(error);
-				//System.out.println("1Error:" + error);
-			} else {
-				double error = Math.abs(cl.getPrediction() - reward) * beta;
-				cl.setPrediction_error(error);
-				//System.out.println("2Error:" + error);
+		for (pair P : list_action_sets) {
+			ArrayList<Classifier> ActionSet = P.actions_Set;
+			for (Classifier cl : ActionSet) {
+				double pred_error = cl.getPrediction_error();
+				if (pred_error < prediction_error_knot) {
+					accuracy.add(1.0);
+				} else {
+					accuracy.add(alpha * (Math.pow(pred_error / prediction_error_knot, -power_factor_nu)));
+				}
+				accuracy_sum += accuracy.get(accuracy.size() - 1) * cl.getNumerosity();
 			}
 		}
 
-		this.update_fitness_action_set();
+		int k = 0;
+		for (pair P : list_action_sets) {
+			ArrayList<Classifier> ActionSet = P.actions_Set;
+			for (Classifier cl : ActionSet) {
+				double fitness = cl.getFitness();
+				fitness = fitness + beta * (accuracy.get(k++) * cl.getNumerosity() / accuracy_sum - fitness);
+				cl.setFitness(fitness);
+			}
+		}
 	}
 
 	public void write_population_set_to_file() {
@@ -427,13 +546,11 @@ public class Main_XCS {
 			for (Classifier cl : this.population_Set) {
 				os.writeObject(cl);
 			}
-			
+
 			os.close();
 		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 
@@ -442,56 +559,31 @@ public class Main_XCS {
 			out_actual_time.write("" + actual_time);
 			out_actual_time.close();
 		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 
 	}
 
 	public void appy_GA() {
-		//System.out.println("GA Run");
 		for (pair p : list_action_sets) {
 			Run_GA.running_GA(p.actions_Set, population_Set, p.input, actual_time);
 		}
 	}
 
-	public void create_action_set_list_for_GA(Environment env) {
+	public void ADD_action_set(Environment env) {
 		ArrayList<Classifier> action_Set_to_store = new ArrayList<>(action_Set);
 		list_action_sets.add(new pair(env.get_input_state(game), action_Set_to_store));
 	}
-	
-	public double[] calculate_values_to_be_stored(){
-		
-		double avg_fitness=0.0;
-		double avg_prediction_error=0.0;
-		
-		int no_of_macro_classifier=0;
 
-		for(Classifier cl:population_Set){
-			avg_fitness+= cl.getFitness();
-			avg_prediction_error+=cl.getPrediction_error();
-			no_of_macro_classifier++;
-		}
-		avg_fitness= avg_fitness/no_of_macro_classifier;
-		avg_prediction_error= avg_prediction_error/no_of_macro_classifier;
-		
-		double[] values= {avg_fitness,avg_prediction_error};
-		return values;
-	}
-	
-	public int calculate_total_numerosity(){
-		int sum_numerosity = 0;
-		
-		for (Classifier ptr : population_Set) {
-			sum_numerosity += ptr.getNumerosity();
-		}
-		return sum_numerosity;
-	}
-	
-	public int no_of_macro_classifier(){
-		return population_Set.size();
+	public Parameters get_parameters() {
+		Parameters p = new Parameters();
+		p.fitness = this.sum_fitness / population_Set.size();
+		p.numerosity = this.sum_numerosity;
+		p.prediction = this.sum_prediction / population_Set.size();
+		p.prediction_error = this.sum_prediction_error / population_Set.size();
+		// System.out.println(this.sum_prediction_error);
+		return p;
 	}
 }

@@ -15,14 +15,14 @@ import javax.swing.border.Border;
 public class Othello extends JFrame implements ActionListener {
 
 	private static final long serialVersionUID = 1L;
-	public static final int BOARD_SIZE = 4;
+	public static final int BOARD_SIZE = 6;
 	public static final int INCOMPLETE = 3;
 	public static final int COMPLETE = 4;
 	boolean flag_for_passing_chances = false;
 	private String winner = "";
 	private JButton[][] buttons;
 	public boolean isBlackTurn = true;
-	Main_XCS xcs_agent;
+
 
 	Othello() {
 		GridLayout layout = new GridLayout(BOARD_SIZE, BOARD_SIZE);
@@ -153,12 +153,15 @@ public class Othello extends JFrame implements ActionListener {
 			int wcount = 0, bcount = 0;
 			for (int i = 0; i < BOARD_SIZE; i++) {
 				for (int j = 0; j < BOARD_SIZE; j++) {
+					
 					if (this.buttons[i][j].getBackground() == Color.BLACK) {
 						bcount++;
 					}
+					
 					if (this.buttons[i][j].getBackground() == Color.WHITE) {
 						wcount++;
 					}
+					
 				}
 			}
 			if (wcount > bcount) {
@@ -171,8 +174,8 @@ public class Othello extends JFrame implements ActionListener {
 				winner = "Tie";
 				//JOptionPane.showMessageDialog(null, "TIE !");
 			}
-			setVisible(false);
-			dispose();// destroys the jframe objects
+			setVisible(false); //you can't see me!
+			dispose(); //Destroy the JFrame object
 		}
 	}
 
