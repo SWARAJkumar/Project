@@ -56,7 +56,11 @@ public class Main_XCS {
 	Othello game;
 	Environment env;
 	JButton[][] buttons;
-
+	
+	public Main_XCS(){
+		population_Set = new ArrayList<Classifier>(size_Of_Population);
+		this.generate_Population_Set();
+	}
 	// Constructor:
 	public Main_XCS(Othello game) {
 		this.game = game;

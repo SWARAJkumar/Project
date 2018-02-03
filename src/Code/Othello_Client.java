@@ -13,10 +13,10 @@ public class Othello_Client {
 
 	public static void main(String[] args) {
 		int num_games = 40000;
-		int n = 0;
-		double black_wins = 0;
-		double white_wins = 0;
-		double ties = 0;
+		int n = 15418;
+		double black_wins = 7408;
+		double white_wins = 7180;
+		double ties = 830;
 		double moving_black_percentage_wins = 0;
 		double moving_white_percentage_wins = 0;
 		double moving_tie_percentage = 0;
@@ -24,9 +24,9 @@ public class Othello_Client {
 
 		try {
 
-			csvfile = new FileWriter("gameStatus.csv");
-			csvfile.append(
-					"gameNo,result,black_wins,ties,white_wins,blackPercentage,whitePercentage,tiePercentage,avg_prediction_error,avg_fitness,avg_prediction,sum_numerosity");
+			csvfile = new FileWriter("gameStatus.csv", true);
+			//csvfile.append(
+			//		"gameNo,result,black_wins,ties,white_wins,blackPercentage,whitePercentage,tiePercentage,avg_prediction_error,avg_fitness,avg_prediction,sum_numerosity");
 			csvfile.append("\n");
 
 			while (n++ < num_games) {
@@ -49,7 +49,7 @@ public class Othello_Client {
 						Two_d_array_indices action = move_list.get(pos);
 						e.take_action(game, action);
 
-						/**
+						/**	
 						 * Minimax snippet: try {
 						 * 
 						 * TimeUnit.SECONDS.sleep(2); } catch
@@ -107,7 +107,6 @@ public class Othello_Client {
 								+ p.prediction + "," + p.numerosity);
 						csvfile.append("\n");
 						break;
-
 					}
 				}
 				csvfile.flush();

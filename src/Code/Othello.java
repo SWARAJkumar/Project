@@ -62,7 +62,7 @@ public class Othello extends JFrame implements ActionListener {
 		this.set_Valid_Moves_Color();
 		// this.isBlackTurn = true;
 
-		super.setVisible(true);
+		super.setVisible(false);
 		// xcs_agent = new Main_XCS(this);
 	}
 
